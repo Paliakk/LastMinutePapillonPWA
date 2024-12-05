@@ -193,11 +193,11 @@
       "url": "icon-512.png"
     },
     {
-      "hash": "sha256-L5vNOmE\/UNLHM3t5amX7sF8XhvbKgNTIxAfQHZ+BFis=",
+      "hash": "sha256-btAtj1kP6dxG3y+iUH7pafzhW8JKXQhPdjTLRorVYuo=",
       "url": "index.html"
     },
     {
-      "hash": "sha256-rXyUy+O0rtOyQjBiVGqj2vcvpKmYkiolcMjQjTyjB4s=",
+      "hash": "sha256-vpKhJLslOUczVyWY7mOPfrBZeIlaNV6xp1RggGkXxjw=",
       "url": "manifest.webmanifest"
     },
     {
@@ -205,5 +205,5 @@
       "url": "sample-data\/weather.json"
     }
   ],
-  "version": "NzRrJ585"
+  "version": "0IGWBnNk"
 };

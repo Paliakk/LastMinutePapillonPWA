@@ -2,7 +2,7 @@
   "name": "LastMinutePapillonPWA",
   "short_name": "LastMinute",
   "id": "./",
-  "start_url": "./",
+  "start_url": "./89/",
   "display": "standalone",
   "background_color": "#1e1e1e",
   "theme_color": "#ff4500",
