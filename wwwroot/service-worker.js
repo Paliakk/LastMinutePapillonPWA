@@ -1,61 +1,56 @@
-// In development, always fetch from the network and do not enable offline support.
-// This is because caching would make development more difficult (changes would not
-// be reflected on the first load after each change).
-const CACHE_NAME = 'lastminute-cache-v1'; // Nom du cache
-const assetsToCache = [
-    '/', // Page d'accueil
-    '/index.html',
-    '/manifest.webmanifest',
-    '/images/icons/icon-192.png',
-    '/images/icons/icon-512.png',
-    '/css/style.css', // Votre fichier CSS
-    '/js/app.js', // Votre fichier JS principal
-    '/offline.html', // Fichier HTML qui sera servi lorsqu'il est hors ligne
-];
-self.addEventListener('fetch', () => { });
-self.addEventListener('install', (event) => {
-    console.log('Service Worker installé');
-    event.waitUntil(
-        caches.open(CACHE_NAME).then((cache) => {
-            return cache.addAll(assetsToCache);
-        })
-    );
-});
-// Activation du service worker
-self.addEventListener('activate', (event) => {
-    console.log('Service Worker activé');
-    const cacheWhitelist = [CACHE_NAME];
+// Caution! Be sure you understand the caveats before publishing an application with
+// offline support. See https://aka.ms/blazor-offline-considerations
 
-    // Supprimer les anciens caches non utilisés
-    event.waitUntil(
-        caches.keys().then((cacheNames) => {
-            return Promise.all(
-                cacheNames.map((cacheName) => {
-                    if (!cacheWhitelist.includes(cacheName)) {
-                        return caches.delete(cacheName);
-                    }
-                })
-            );
-        })
-    );
-});
-// Interception des requêtes réseau pour les servir à partir du cache (si disponible)
-self.addEventListener('fetch', (event) => {
-    // Si la requête est pour une page, servir la page hors ligne si elle est en cache
-    event.respondWith(
-        caches.match(event.request).then((cachedResponse) => {
-            if (cachedResponse) {
-                return cachedResponse; // Si la ressource est en cache, renvoyer la version en cache
-            }
+self.importScripts('./service-worker-assets.js');
+self.addEventListener('install', event => event.waitUntil(onInstall(event)));
+self.addEventListener('activate', event => event.waitUntil(onActivate(event)));
+self.addEventListener('fetch', event => event.respondWith(onFetch(event)));
 
-            // Sinon, fetcher la ressource depuis le réseau
-            return fetch(event.request).catch(() => {
-                // Si la requête échoue (pas de connexion), renvoyer une page hors ligne
-                if (event.request.url.endsWith('.html')) {
-                    return caches.match('/offline.html');
-                }
-            });
-        })
-    );
-});
-/* Manifest version: CZcRWwfs */
+const cacheNamePrefix = 'offline-cache-';
+const cacheName = `${cacheNamePrefix}${self.assetsManifest.version}`;
+const offlineAssetsInclude = [ /\.dll$/, /\.pdb$/, /\.wasm/, /\.html/, /\.js$/, /\.json$/, /\.css$/, /\.woff$/, /\.png$/, /\.jpe?g$/, /\.gif$/, /\.ico$/, /\.blat$/, /\.dat$/ ];
+const offlineAssetsExclude = [ /^service-worker\.js$/ ];
+
+// Replace with your base path if you are hosting on a subfolder. Ensure there is a trailing '/'.
+const base = "/";
+const baseUrl = new URL(base, self.origin);
+const manifestUrlList = self.assetsManifest.assets.map(asset => new URL(asset.url, baseUrl).href);
+
+async function onInstall(event) {
+    console.info('Service worker: Install');
+
+    // Fetch and cache all matching items from the assets manifest
+    const assetsRequests = self.assetsManifest.assets
+        .filter(asset => offlineAssetsInclude.some(pattern => pattern.test(asset.url)))
+        .filter(asset => !offlineAssetsExclude.some(pattern => pattern.test(asset.url)))
+        .map(asset => new Request(asset.url, { integrity: asset.hash, cache: 'no-cache' }));
+    await caches.open(cacheName).then(cache => cache.addAll(assetsRequests));
+}
+
+async function onActivate(event) {
+    console.info('Service worker: Activate');
+
+    // Delete unused caches
+    const cacheKeys = await caches.keys();
+    await Promise.all(cacheKeys
+        .filter(key => key.startsWith(cacheNamePrefix) && key !== cacheName)
+        .map(key => caches.delete(key)));
+}
+
+async function onFetch(event) {
+    let cachedResponse = null;
+    if (event.request.method === 'GET') {
+        // For all navigation requests, try to serve index.html from cache,
+        // unless that request is for an offline resource.
+        // If you need some URLs to be server-rendered, edit the following check to exclude those URLs
+        const shouldServeIndexHtml = event.request.mode === 'navigate'
+            && !manifestUrlList.some(url => url === event.request.url);
+
+        const request = shouldServeIndexHtml ? 'index.html' : event.request;
+        const cache = await caches.open(cacheName);
+        cachedResponse = await cache.match(request);
+    }
+
+    return cachedResponse || fetch(event.request);
+}
+/* Manifest version: NzRrJ585 */
